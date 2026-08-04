@@ -1,0 +1,74 @@
+# OS and editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Local environment files
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+.streamlit/secrets.*.toml
+
+# Local databases and generated task artifacts
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+data/*
+!data/.gitkeep
+
+# Project-local toolchains and generated frontend assets
+webapp/.tools/
+webapp/frontend/node_modules/
+webapp/frontend/.next/
+webapp/frontend/out/
+webapp/frontend/coverage/
+webapp/frontend/tsconfig.tsbuildinfo
+
+# External reference material not cleared for public repo
+docs/public/
+
+# Historical local tool downloads and generated runs
+download/
+ai-param-flow-test/
+ai-param-flow-test/output/
+ai-param-flow-test/js_reverse_cache/
+ai-param-flow-test/**/__pycache__/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Local agent/session state
+.agents/
+.codex/
