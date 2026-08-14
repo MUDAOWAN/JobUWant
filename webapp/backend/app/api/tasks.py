@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -23,6 +23,15 @@ def create_task(payload: AnalysisTaskCreate) -> ApiResponse[TaskDetailRead]:
 def start_collection(task_id: str) -> ApiResponse[TaskDetailRead]:
     try:
         return ok(task_service.start_collection(task_id), message='collection started')
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f'task not found: {task_id}') from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+@router.post('/{task_id}/actions/cancel', response_model=ApiResponse[TaskDetailRead])
+def cancel_task(task_id: str) -> ApiResponse[TaskDetailRead]:
+    try:
+        return ok(task_service.cancel_task(task_id), message='task canceled')
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f'task not found: {task_id}') from exc
     except ValueError as exc:

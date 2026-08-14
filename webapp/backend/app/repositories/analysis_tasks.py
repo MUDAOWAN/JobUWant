@@ -1,11 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import sqlite3
 from typing import Any
 
+from app.core.city_catalog import resolve_city
 from app.repositories.database import initialize_task_tables
-from app.schemas.tasks import AnalysisTaskCreate, AnalysisTaskRead, FixtureBinding, TaskDetailRead, TaskEventRead, TaskStageRunRead
+from app.schemas.tasks import AnalysisTaskCreate, AnalysisTaskRead, FixtureBinding, TaskDetailRead, TaskEventRead, TaskMetricsRead, TaskStageRunRead
 from app.services.task_harness import HarnessAction, StageName, StageStatus, TaskStatus, assert_action_allowed, derive_task_status, list_stage_specs
 
 LIVE_TASK_PREFIX = 'task-'
@@ -27,8 +28,9 @@ def parse_public_task_id(task_id: str) -> int:
 def create_task(conn: sqlite3.Connection, payload: AnalysisTaskCreate) -> TaskDetailRead:
     initialize_task_tables(conn)
     task_name = payload.task_name.strip()
-    city = payload.city.strip()
-    city_code = payload.city_code.strip()
+    city_info = resolve_city(payload.city, payload.city_code)
+    city = city_info.name
+    city_code = city_info.city_code
     keyword = payload.keyword.strip()
     source_type = payload.source_type.strip()
     notes = payload.notes.strip()
@@ -82,8 +84,6 @@ def create_task(conn: sqlite3.Connection, payload: AnalysisTaskCreate) -> TaskDe
             payload={'task_public_id': public_task_id(row_id), 'source_type': source_type},
         )
     return get_task_detail(conn, public_task_id(row_id))
-
-
 
 
 def start_action(conn: sqlite3.Connection, task_id: str, action: HarnessAction, message: str, payload: dict[str, Any] | None = None) -> TaskDetailRead:
@@ -196,6 +196,72 @@ def mark_stage_failed(conn: sqlite3.Connection, task_id: str, stage_name: StageN
             payload={'error_code': error_code},
         )
     return get_task_detail(conn, task_id)
+
+
+def cancel_task(conn: sqlite3.Connection, task_id: str, reason: str = '', payload: dict[str, Any] | None = None) -> TaskDetailRead:
+    initialize_task_tables(conn)
+    row_id = parse_public_task_id(task_id)
+    ensure_task_exists(conn, row_id, task_id)
+    rows = conn.execute(
+        '''
+        SELECT id, stage_name, status
+        FROM task_stage_runs
+        WHERE task_id = ?
+        ORDER BY id
+        ''',
+        (row_id,),
+    ).fetchall()
+    active_rows = [row for row in rows if str(row['status']) in {StageStatus.RUNNING.value, StageStatus.WAITING_FOR_USER.value}]
+    if not active_rows:
+        task_row = conn.execute('SELECT status FROM analysis_tasks WHERE id = ?', (row_id,)).fetchone()
+        if task_row is not None and str(task_row['status'] or '') == TaskStatus.CANCELED.value:
+            return get_task_detail(conn, task_id)
+        raise ValueError('task has no running stage to cancel')
+
+    message = reason or '任务已中断。'
+    output_payload = {'description': message, **(payload or {})}
+    with conn:
+        for row in active_rows:
+            conn.execute(
+                '''
+                UPDATE task_stage_runs
+                SET status = ?, finished_at = CURRENT_TIMESTAMP,
+                    elapsed_seconds = CASE
+                        WHEN started_at IS NULL THEN elapsed_seconds
+                        ELSE CAST((julianday(CURRENT_TIMESTAMP) - julianday(started_at)) * 86400 AS REAL)
+                    END,
+                    output_json = ?, error_code = '', error_message = '', updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                ''',
+                (StageStatus.CANCELED.value, json.dumps(output_payload, ensure_ascii=False), int(row['id'])),
+            )
+        conn.execute(
+            '''
+            UPDATE task_stage_runs
+            SET status = ?, output_json = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE task_id = ? AND status = ?
+            ''',
+            (StageStatus.SKIPPED.value, json.dumps({'description': '任务已中断，后续阶段未执行。'}, ensure_ascii=False), row_id, StageStatus.PENDING.value),
+        )
+        conn.execute(
+            '''
+            UPDATE analysis_tasks
+            SET status = ?, finished_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            ''',
+            (TaskStatus.CANCELED.value, row_id),
+        )
+        append_event(
+            conn,
+            task_id=row_id,
+            level='info',
+            event_type='task_canceled',
+            message=message,
+            payload=payload or {},
+            stage_run_id=int(active_rows[-1]['id']),
+        )
+    return get_task_detail(conn, task_id)
+
 
 def resume_waiting_stage(
     conn: sqlite3.Connection,
@@ -323,9 +389,11 @@ def get_task_detail(conn: sqlite3.Connection, task_id: str) -> TaskDetailRead:
         conn.execute('UPDATE analysis_tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (derived_status, row_id))
         conn.commit()
         row = conn.execute('SELECT * FROM analysis_tasks WHERE id = ?', (row_id,)).fetchone()
-    search_run_id = live_task_metrics(conn, row_id)['search_run_id']
+    task_metrics = live_task_metrics(conn, row_id)
+    search_run_id = task_metrics['search_run_id']
     return TaskDetailRead(
         task=row_to_task_read(conn, row),
+        metrics=build_task_metrics(conn, row_id, stages, search_run_id),
         stages=stages,
         match_status_counts=count_run_field(conn, search_run_id, 'match_status') if search_run_id else {},
         role_intent_counts=count_run_field(conn, search_run_id, 'role_intent') if search_run_id else {},
@@ -849,7 +917,93 @@ def parse_json_object(value: object) -> dict[str, Any]:
         return {}
     return parsed if isinstance(parsed, dict) else {}
 
+def build_task_metrics(conn: sqlite3.Connection, row_id: int, stages: list[TaskStageRunRead], search_run_id: int) -> TaskMetricsRead:
+    stage_seconds = {stage.stage_name: float(stage.elapsed_seconds or 0) for stage in stages}
+    collection_seconds = stage_seconds.get(StageName.COLLECT_JOBS.value, 0)
+    scoring_seconds = stage_seconds.get(StageName.SCORE_JOBS.value, 0)
+    analysis_seconds = sum(
+        stage_seconds.get(stage.value, 0)
+        for stage in (StageName.AI_STRUCTURING, StageName.BUILD_REPORT_INPUT, StageName.WRITE_FINAL_REPORT)
+    )
+    input_tokens, output_tokens, estimated_cny = batch_usage_totals(conn, row_id)
+    report_usage = latest_artifact_usage(conn, row_id, 'report')
+    input_tokens += int(report_usage.get('input_tokens') or 0)
+    output_tokens += int(report_usage.get('output_tokens') or 0)
+    estimated_cny += float(report_usage.get('estimated_cny') or 0)
+    return TaskMetricsRead(
+        collection_seconds=collection_seconds,
+        scoring_seconds=scoring_seconds,
+        analysis_seconds=analysis_seconds,
+        total_elapsed_seconds=sum(stage_seconds.values()),
+        average_match_score=average_match_score(conn, row_id, search_run_id),
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=input_tokens + output_tokens,
+        estimated_cny=round(estimated_cny, 4),
+        usage_recorded=bool(input_tokens or output_tokens or estimated_cny),
+    )
 
 
+def batch_usage_totals(conn: sqlite3.Connection, row_id: int) -> tuple[int, int, float]:
+    row = conn.execute(
+        '''
+        SELECT COALESCE(SUM(input_tokens), 0) AS input_tokens,
+               COALESCE(SUM(output_tokens), 0) AS output_tokens,
+               COALESCE(SUM(estimated_cny), 0) AS estimated_cny
+        FROM batch_runs
+        WHERE task_id = ?
+        ''',
+        (row_id,),
+    ).fetchone()
+    if row is None:
+        return 0, 0, 0
+    return int(row['input_tokens'] or 0), int(row['output_tokens'] or 0), float(row['estimated_cny'] or 0)
 
 
+def latest_artifact_usage(conn: sqlite3.Connection, row_id: int, artifact_type: str) -> dict[str, Any]:
+    row = conn.execute(
+        '''
+        SELECT summary_json
+        FROM task_artifacts
+        WHERE task_id = ? AND artifact_type = ?
+        ORDER BY id DESC
+        LIMIT 1
+        ''',
+        (row_id, artifact_type),
+    ).fetchone()
+    if row is None:
+        return {}
+    summary = parse_json_object(row['summary_json'])
+    usage = summary.get('usage')
+    return usage if isinstance(usage, dict) else {}
+
+
+def average_match_score(conn: sqlite3.Connection, row_id: int, search_run_id: int) -> float:
+    scored_artifact = conn.execute(
+        '''
+        SELECT summary_json
+        FROM task_artifacts
+        WHERE task_id = ? AND artifact_type = ?
+        ORDER BY id DESC
+        LIMIT 1
+        ''',
+        (row_id, 'scored_jobs'),
+    ).fetchone()
+    if scored_artifact is not None:
+        summary = parse_json_object(scored_artifact['summary_json'])
+        try:
+            return round(float(summary.get('average_score') or 0), 1)
+        except (TypeError, ValueError):
+            return 0
+    if search_run_id <= 0:
+        return 0
+    try:
+        row = conn.execute(
+            'SELECT AVG(match_score) AS average_score FROM job_search_run_items WHERE search_run_id = ?',
+            (search_run_id,),
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return 0
+    if row is None:
+        return 0
+    return round(float(row['average_score'] or 0), 1)

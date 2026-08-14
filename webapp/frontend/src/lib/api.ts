@@ -1,4 +1,4 @@
-﻿const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 export type ApiResponse<T> = {
   trace_id: string;
@@ -19,6 +19,14 @@ export type FixtureBinding = {
   report_input_path: string;
   report_path: string;
   timing_path: string;
+};
+
+export type SupportedCity = {
+  name: string;
+  province: string;
+  city_code: string;
+  tier: string;
+  verified: boolean;
 };
 
 export type AnalysisTask = {
@@ -52,6 +60,19 @@ export type AnalysisTaskCreate = {
   notes?: string;
 };
 
+export type TaskMetrics = {
+  collection_seconds: number;
+  scoring_seconds: number;
+  analysis_seconds: number;
+  total_elapsed_seconds: number;
+  average_match_score: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  estimated_cny: number;
+  usage_recorded: boolean;
+};
+
 export type TaskStageRun = {
   stage_name: string;
   status: string;
@@ -61,6 +82,7 @@ export type TaskStageRun = {
 
 export type TaskDetail = {
   task: AnalysisTask;
+  metrics: TaskMetrics;
   stages: TaskStageRun[];
   match_status_counts: Record<string, number>;
   role_intent_counts: Record<string, number>;
@@ -224,6 +246,10 @@ export function listTasks() {
   return request<AnalysisTask[]>("/api/tasks");
 }
 
+export function listCities() {
+  return request<SupportedCity[]>("/api/cities");
+}
+
 export function createTask(payload: AnalysisTaskCreate) {
   return request<TaskDetail>("/api/tasks", { method: "POST", body: payload });
 }
@@ -263,6 +289,9 @@ export function startCollection(taskId: string) {
   return request<TaskDetail>(`/api/tasks/${taskId}/actions/start-collection`, { method: "POST" });
 }
 
+export function cancelTask(taskId: string) {
+  return request<TaskDetail>(`/api/tasks/${taskId}/actions/cancel`, { method: "POST" });
+}
 export function startScoring(taskId: string) {
   return request<TaskDetail>(`/api/tasks/${taskId}/actions/start-scoring`, { method: "POST" });
 }

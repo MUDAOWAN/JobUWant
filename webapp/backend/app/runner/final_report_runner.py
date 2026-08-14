@@ -30,6 +30,11 @@ REPORT_FILENAME = 'final_report.json'
 _EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix='jobuwant-final-report')
 _LOCK = threading.Lock()
 _ACTIVE_TASKS: set[str] = set()
+_CANCEL_REQUESTS: set[str] = set()
+
+
+class FinalReportCanceled(RuntimeError):
+    pass
 
 
 def submit_final_report(task_id: str) -> bool:
@@ -48,6 +53,21 @@ def _run_and_release(task_id: str) -> None:
     finally:
         with _LOCK:
             _ACTIVE_TASKS.discard(task_id)
+            _CANCEL_REQUESTS.discard(task_id)
+
+
+
+def cancel_final_report(task_id: str) -> bool:
+    with _LOCK:
+        active = task_id in _ACTIVE_TASKS
+        if active:
+            _CANCEL_REQUESTS.add(task_id)
+    return active
+
+
+def _is_cancel_requested(task_id: str) -> bool:
+    with _LOCK:
+        return task_id in _CANCEL_REQUESTS
 
 
 def _consume_background_exception(future: Future[None]) -> None:
@@ -90,6 +110,8 @@ def run_final_report_for_task(task_id: str) -> None:
         return
 
     try:
+        if _is_cancel_requested(task_id):
+            raise FinalReportCanceled('final report canceled')
         output_path = DATA_DIR / 'task_artifacts' / task_id / REPORT_FILENAME
         report, usage, _raw_json = write_report_with_openai(
             report_input=report_input,
@@ -97,6 +119,8 @@ def run_final_report_for_task(task_id: str) -> None:
             request_timeout=180.0,
             max_output_tokens=3500,
         )
+        if _is_cancel_requested(task_id):
+            raise FinalReportCanceled('final report canceled')
         report_id = save_report(
             conn=conn,
             report_input_id=report_input_id,
@@ -130,6 +154,13 @@ def run_final_report_for_task(task_id: str) -> None:
             artifact_summary=output_payload,
             related_table='job_reports',
             related_id=report_id,
+        )
+    except FinalReportCanceled:
+        analysis_tasks.cancel_task(
+            conn,
+            task_id=task_id,
+            reason='分析已中断，最终报告不会写入任务产物。',
+            payload={'stage': StageName.WRITE_FINAL_REPORT.value},
         )
     except Exception as exc:  # noqa: BLE001
         analysis_tasks.mark_stage_failed(
@@ -178,3 +209,5 @@ def parse_json_object(value: object) -> dict[str, Any]:
     except json.JSONDecodeError:
         return {}
     return parsed if isinstance(parsed, dict) else {}
+
+

@@ -1,4 +1,4 @@
-﻿# JobUWant Web App Implementation Record
+# JobUWant Web App Implementation Record
 
 Status: active record created on 2026-07-31.
 
@@ -467,3 +467,111 @@ Verification:
 Next:
 
 - Move from shared-component cleanup into a broader visual redesign pass, starting with a concrete visual direction for task workspace density, sidebar behavior, and final report reading layout.
+
+## 2026-08-05 Tasks Page Layout Split
+
+Status: completed for the first `/tasks` page layout adjustment requested during browser review.
+
+Completed outputs:
+
+- Reworked `/tasks` into two clear sections:
+  - A persistent create-task section at the top.
+  - A separate existing-task section below it.
+- Removed the previous create-task collapse trigger so task name, city, keyword, job type, and collection limit fields remain visible.
+- Moved the search input into the existing-task section.
+- Scoped search intent to the existing task/test task list.
+- Kept live task creation, task refresh, task filtering, fixture-task navigation, and live-task navigation behavior unchanged.
+- Recorded that `ui-ux-pro-max` is installed locally at `/home/votally/.codex/skills/ui-ux-pro-max` for later visual refinement.
+
+Changed files:
+
+- `webapp/frontend/src/features/tasks/task-list-page.tsx`
+
+Verification:
+
+- Frontend `npm run typecheck` passed.
+- Frontend `npm run lint` passed.
+- Frontend `npm run build` passed.
+- `GET http://127.0.0.1:8000/api/health` returned 200.
+- `GET http://127.0.0.1:3000/tasks` returned 200.
+
+Next planned step:
+
+- Pause code edits for handoff.
+- In the next conversation, first reread the handoff docs and current `/tasks` frontend code, then wait for user feedback before continuing UI work.
+## 2026-08-05 Create Task City Selector Update
+
+Completed:
+
+- Added `webapp/backend/app/core/city_catalog.py` with a first batch of supported first-tier, new-first-tier, and second-tier cities.
+- Added `GET /api/cities` for the frontend city selector.
+- Updated live task creation so the backend infers `city_code` from the selected city.
+- Unknown city names and mismatched city/city_code pairs are rejected.
+- Reduced `expected_job_count` upper bound from 500 to 200.
+- Updated `/tasks` create form:
+  - removed visible city-code input
+  - removed visible source-type input
+  - removed visible batch-size input
+  - renamed keyword label to `查找岗位`
+  - changed city to a grouped dropdown
+  - added red inline validation when target count exceeds 200
+  - submits batch size as the default 10
+- Did not start collection and did not call model-backed stages.
+
+Verification:
+
+- Backend tests passed: 37 passed, 23 warnings.
+- Frontend `npm run typecheck` passed before final edits; `npm run build` also reran TypeScript successfully.
+- Frontend `npm run lint` passed.
+- Frontend `npm run build` passed.
+## 2026-08-06 Tasks Page Layout Discussion Pass
+
+Completed:
+
+- Reworked `/tasks` into a three-part layout: brand/status header, emphasized create-task area, and a compact collapsible recent-task area.
+- Kept the current task creation and navigation behavior unchanged.
+- Did not start collection and did not call model-backed stages.
+
+Verification:
+
+- Frontend `npm run typecheck` passed.
+- Frontend `npm run lint` passed.
+- Frontend `npm run build` passed.
+- `/tasks` returned HTTP 200 after restarting the frontend preview.
+
+## 2026-08-06 Task Cancellation Boundary
+
+Implemented the first backend boundary for the planned one-click task flow.
+
+Changed behavior:
+
+- Added `POST /api/tasks/{task_id}/actions/cancel`.
+- Added stage status `canceled` and task status derivation for canceled tasks.
+- Added repository support for canceling the active stage, skipping downstream pending stages, and writing a `task_canceled` event.
+- Added collection-runner cancellation tracking. If collection is stopped before completion, the runner removes the generated output file and does not import or record a `search_run` artifact.
+- Added frontend API client support through `cancelTask`, without wiring a visible button yet.
+- Did not start a real collection run and did not call model-backed stages.
+
+Verification:
+
+- Backend tests passed: 41 passed, 25 warnings.
+- Frontend TypeScript check passed through direct `tsc --noEmit` invocation.
+- Frontend ESLint passed through direct ESLint invocation.
+- Frontend production build was attempted with Windows Node from WSL and stopped after it remained running for more than 9 minutes without returning a result.
+## 2026-08-06 Tasks Start-Find Flow
+
+Implemented the next frontend step for the planned one-click task entry.
+
+Changed behavior:
+
+- `/tasks` primary button now reads `开始查找`.
+- Submitting the form creates a live task and immediately calls `start-collection`, then opens the task detail page.
+- Task detail now shows a collection-running message and a `中断查找` button wired to the cancellation endpoint.
+- When collection completes and scoring is still pending, the task detail page automatically runs local scoring and then opens the sample confirmation page.
+- This step still does not call model-backed stages. The later analysis chain remains behind a separate user action.
+
+Verification:
+
+- Frontend TypeScript check passed through direct `tsc --noEmit` invocation.
+- Frontend ESLint passed through direct ESLint invocation.
+- Backend tests passed: 41 passed, 25 warnings.

@@ -19,8 +19,8 @@ export function AppShell({ title, eyebrow = "JobUWant Web App", actions, childre
       <header className="border-b border-[#e8ecf2] bg-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-[#2364aa]">{eyebrow}</p>
-            <h1 className="mt-1 text-2xl font-semibold">{title}</h1>
+            {eyebrow ? <p className="text-sm font-medium text-[#2364aa]">{eyebrow}</p> : null}
+            <h1 className={eyebrow ? "mt-1 text-2xl font-semibold" : "text-2xl font-semibold"}>{title}</h1>
           </div>
           {actions ? <div className="flex flex-wrap items-center gap-3">{actions}</div> : null}
         </div>
@@ -83,3 +83,4 @@ export function MetricBlock({ label, value, helper, icon }: { label: string; val
     </div>
   );
 }
+

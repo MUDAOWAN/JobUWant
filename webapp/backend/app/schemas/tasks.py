@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
@@ -9,7 +9,7 @@ class AnalysisTaskCreate(BaseModel):
     city_code: str = Field(default='', max_length=40)
     keyword: str = Field(min_length=1, max_length=80)
     job_type: str = Field(default='any', max_length=40)
-    expected_job_count: int = Field(default=30, ge=1, le=500)
+    expected_job_count: int = Field(default=30, ge=1, le=200)
     batch_size: int = Field(default=10, ge=1, le=100)
     source_type: str = Field(default='', max_length=160)
     notes: str = Field(default='', max_length=1000)
@@ -50,8 +50,23 @@ class TaskStageRunRead(BaseModel):
     message: str = ''
 
 
+
+
+class TaskMetricsRead(BaseModel):
+    collection_seconds: float = 0
+    scoring_seconds: float = 0
+    analysis_seconds: float = 0
+    total_elapsed_seconds: float = 0
+    average_match_score: float = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    estimated_cny: float = 0
+    usage_recorded: bool = False
+
 class TaskDetailRead(BaseModel):
     task: AnalysisTaskRead
+    metrics: TaskMetricsRead = Field(default_factory=TaskMetricsRead)
     stages: list[TaskStageRunRead] = Field(default_factory=list)
     match_status_counts: dict[str, int] = Field(default_factory=dict)
     role_intent_counts: dict[str, int] = Field(default_factory=dict)
@@ -145,5 +160,6 @@ class TaskEventRead(BaseModel):
     message: str
     created_at: str = ''
     payload: dict[str, object] = Field(default_factory=dict)
+
 
 

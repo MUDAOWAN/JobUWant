@@ -2,7 +2,7 @@
 
 from app.repositories import analysis_tasks
 from app.repositories.database import connect
-from app.runner import collection_runner
+from app.runner import collection_runner, final_report_runner, structuring_runner
 from app.schemas.tasks import AnalysisTaskCreate, AnalysisTaskRead, FinalReportRead, JobListRead, ReportInputPreview, SampleConfirmRequest, StructuringStatusRead, TaskDetailRead, TaskEventRead
 from app.services import final_report_service, fixture_service, report_input_service, sample_service, scoring_service, structuring_service
 from app.services.task_harness import HarnessAction, StageName
@@ -169,6 +169,27 @@ def validate_collection_inputs(detail: TaskDetailRead) -> None:
     collection_runner.map_job_type(detail.task.job_type)
 
 
+def cancel_task(task_id: str) -> TaskDetailRead:
+    if not task_id.startswith(analysis_tasks.LIVE_TASK_PREFIX):
+        raise KeyError(task_id)
+    collection_cancel_requested = collection_runner.cancel_collection(task_id)
+    structuring_cancel_requested = structuring_runner.cancel_structuring(task_id)
+    final_report_cancel_requested = final_report_runner.cancel_final_report(task_id)
+    conn = connect()
+    try:
+        return analysis_tasks.cancel_task(
+            conn,
+            task_id=task_id,
+            reason='任务已中断，本次未完成的执行结果不会进入后续流程。',
+            payload={
+                'collection_cancel_requested': collection_cancel_requested,
+                'structuring_cancel_requested': structuring_cancel_requested,
+                'final_report_cancel_requested': final_report_cancel_requested,
+            },
+        )
+    finally:
+        conn.close()
+
 
 def start_scoring(task_id: str) -> TaskDetailRead:
     if not task_id.startswith(analysis_tasks.LIVE_TASK_PREFIX):
@@ -210,3 +231,4 @@ def write_final_report(task_id: str) -> TaskDetailRead:
     if not task_id.startswith(analysis_tasks.LIVE_TASK_PREFIX):
         raise KeyError(task_id)
     return final_report_service.write_final_report(task_id)
+

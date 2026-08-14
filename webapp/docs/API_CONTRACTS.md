@@ -1,4 +1,4 @@
-﻿# Web App API Contracts
+# Web App API Contracts
 
 Status: live execution endpoints through final report generation are implemented as of 2026-08-02.
 
@@ -285,3 +285,41 @@ Live `GET /api/tasks/{task_id}/report` now reads the generated report artifact. 
 Testing note:
 
 - Backend tests use a fake report writer and do not perform model work.
+## 2026-08-05 City Catalog And Task Form Update
+
+GET /api/cities
+
+- Status: implemented.
+- Purpose: return the supported city list for task creation.
+- Returns: `name`, `province`, `city_code`, `tier`, and `verified` for each supported city.
+- Current behavior: the frontend uses this endpoint to render the city selector; the user does not enter `city_code` manually.
+
+POST /api/tasks update:
+
+- `city` must match the supported city catalog.
+- `city_code` remains an internal field and is inferred by the backend when it is not submitted.
+- If a submitted `city_code` does not match the selected city, the request is rejected.
+- `expected_job_count` is now limited to 1-200.
+- `batch_size` remains supported by the API, but the current `/tasks` form hides it and submits the default value 10.
+- `source_type` remains supported by the API, but the current `/tasks` form hides it and lets the backend auto-generate `webapp_task_{id}`.
+
+## 2026-08-06 Task Cancellation Update
+
+POST /api/tasks/{task_id}/actions/cancel
+
+- Status: implemented.
+- Purpose: cancel a live task that currently has a running or user-waiting stage.
+- Behavior:
+  - live tasks only
+  - marks active stage rows as `canceled`
+  - marks pending downstream stages as `skipped`
+  - marks the task status as `canceled`
+  - appends a `task_canceled` event
+  - asks the collection runner to stop if the collection stage is active
+  - canceled collection output is removed before any search-run artifact is recorded
+- Returns HTTP 409 when the task has no running or user-waiting stage to cancel.
+
+Current boundary:
+
+- The endpoint is available for the upcoming `/tasks` running-state UI.
+- It does not start collection or model-backed work by itself.

@@ -1,4 +1,4 @@
-﻿This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
@@ -49,3 +49,6 @@ The frontend API client and pages now support live task workflow controls:
 - `POST /api/tasks/{task_id}/actions/write-final-report`
 
 Verification passed with lint, typecheck, and production build.
+## 2026-08-05 Create Task Form Update
+
+The `/tasks` page now loads `GET /api/cities` and renders a grouped city selector. City code, source type, and batch size are hidden from the user-facing form. Target count is validated inline and cannot exceed 200.

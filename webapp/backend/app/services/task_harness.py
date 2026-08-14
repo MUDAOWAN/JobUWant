@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from enum import StrEnum
@@ -20,6 +20,7 @@ class StageStatus(StrEnum):
     WAITING_FOR_USER = 'waiting_for_user'
     COMPLETED = 'completed'
     FAILED = 'failed'
+    CANCELED = 'canceled'
     SKIPPED = 'skipped'
 
 
@@ -164,6 +165,8 @@ def next_runnable_stage(stage_statuses: dict[str, str]) -> StageName | None:
 
 def derive_task_status(stage_statuses: dict[str, str]) -> TaskStatus:
     values = set(stage_statuses.values())
+    if StageStatus.CANCELED.value in values:
+        return TaskStatus.CANCELED
     if StageStatus.FAILED.value in values:
         return TaskStatus.FAILED
     if StageStatus.RUNNING.value in values:

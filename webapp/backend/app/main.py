@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.cities import router as cities_router
 from app.api.tasks import router as tasks_router
 from app.repositories.database import connect, initialize_task_tables
 from app.schemas.common import ApiResponse, ok
@@ -17,6 +18,7 @@ def create_app() -> FastAPI:
         allow_methods=['*'],
         allow_headers=['*'],
     )
+    app.include_router(cities_router)
     app.include_router(tasks_router)
 
     @app.on_event('startup')
@@ -35,3 +37,4 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+

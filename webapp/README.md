@@ -1,4 +1,4 @@
-﻿# JobUWant Web App
+# JobUWant Web App
 
 Status: fixture-first pages and Harness baseline are implemented.
 
@@ -221,3 +221,10 @@ The frontend now exposes the first live workflow controls:
 Fixture tasks remain read-only. In this session, the latest preview build is available at:
 
     http://127.0.0.1:3001/tasks
+## Supported City Catalog
+
+The Web App now exposes supported task cities through:
+
+    GET /api/cities
+
+The `/tasks` creation form shows city names only. The backend resolves the selected city to the internal city code needed by the local collection runner. City code, source type, and batch size are not shown in the current form; source type is generated automatically and batch size is submitted as 10.

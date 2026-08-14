@@ -1,4 +1,4 @@
-﻿# Web App Workflow
+# Web App Workflow
 
 Status: active workflow record created on 2026-07-28.
 
@@ -429,3 +429,55 @@ Verification:
 Next planned step:
 
 - Browser-test the live workflow with a deliberately small user-approved task. Do not start new collection or model-backed stages without explicit confirmation.
+### Phase 8.2: Create Task Form Simplification
+
+Status: completed.
+
+Completed outputs:
+
+- City selection is now driven by `GET /api/cities`.
+- The create form no longer exposes city code, source type, or batch size.
+- The backend maps selected city names to persisted city codes.
+- Target count is limited to 200 in both frontend validation and backend schema.
+- Batch size remains an internal default of 10 from the current form.
+
+Verification:
+
+- Backend tests passed: 37 passed.
+- Frontend lint and production build passed.
+
+### Phase 8.3: Task Cancellation Boundary
+
+Status: completed for backend/API boundary.
+
+Completed outputs:
+
+- Added live task cancellation endpoint at `POST /api/tasks/{task_id}/actions/cancel`.
+- Added canceled stage state and task status derivation.
+- Added repository cancellation behavior for active stages and downstream skipped stages.
+- Added collection-runner cancellation tracking and output cleanup before artifact recording.
+- Added frontend API client function for the later running-state UI.
+
+Verification:
+
+- Backend tests passed: 41 passed.
+- Frontend typecheck and lint passed.
+
+Next planned step:
+
+- Add a frontend running-state page or task-detail running panel that can call the cancellation endpoint, then wire `/tasks` primary action from create-only to create-and-start under explicit UI control.
+### Phase 8.4: Start-Find Frontend Flow
+
+Status: completed for create-and-start plus local scoring automation.
+
+Completed outputs:
+
+- `/tasks` primary action now creates a live task and immediately starts the collection stage.
+- The task detail page displays a running-state message and interruption control for collection.
+- Collection completion now triggers local scoring automatically from the task detail page.
+- Successful local scoring routes the user to sample confirmation.
+
+Boundary:
+
+- The analysis/model-backed stages are not automatic yet.
+- The next explicit product step is the sample confirmation action: `确定并开始分析`.

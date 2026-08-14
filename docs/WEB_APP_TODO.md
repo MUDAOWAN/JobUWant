@@ -150,3 +150,228 @@ Status: after prototype.
   - valid search run: `search_run_id=8`
   - report input: `data/job_report_input_gz_gis_any_probe30.json`
   - latest report: `data/job_report_gz_gis_any_probe30.json`
+
+
+## Final Report Page Redesign TODO - 2026-08-14
+
+Goal: redesign the final report page as a professional report dashboard with clear hierarchy, reusable sections, and chart-ready data slots.
+
+Important generalization rule: the report page and backend data contracts must work for any user-entered role, not just one hard-coded role family. Section names, category labels, chart data, and AI-generated text should be shaped so they can cover software roles, operations roles, e-commerce roles, data roles, hardware roles, and other future search targets.
+
+### 1. Top Report Summary
+
+Purpose: keep the current 'job report' hero style, but replace weak generic summary text with a decision-oriented market summary.
+
+Display:
+
+- report title
+- query scope: city, role keyword, job type, sample count
+- market summary: role direction, market demand, salary/threshold signal, common talent profile, and preparation focus
+- compact generation metadata such as model, token, estimated cost, and time
+- optional small sample-quality label if it is already available from report input data
+
+UI direction:
+
+- keep the current top module style as the visual anchor
+- use one strong title, one concise summary paragraph, and compact chips for query scope
+- do not place large charts in this section
+
+### 2. Core Metrics Bar
+
+Purpose: give the user a quick numerical overview before the detailed charts.
+
+Display:
+
+- sample job count
+- strong-match job count
+- average match score
+- top high-frequency skill or ability
+- salary median or average range when enough salary data exists
+- evidence quote hit ratio or sample quality indicator when already computed
+
+Notes:
+
+- Do not show bachelor-degree ratio as a top metric.
+- Do not put 'intern friendliness' in the top metrics unless its definition is made explicit and reliable.
+- Evidence quote hit ratio can come from evidence_quality.exact_quote_hit_ratio produced by report input generation; it should not require additional model work.
+
+UI direction:
+
+- compact horizontal metric cards
+- each card uses label, value, and a short helper line
+- keep the cards secondary to the report summary and later charts
+
+### 3. Skill And Ability Distribution
+
+Purpose: show what the market repeatedly asks for, without assuming every role is a pure technical role.
+
+Display:
+
+- top 15 high-frequency skills or abilities
+- hit count and hit ratio per item, such as 18/30 - 60%
+- category distribution for skills or abilities
+- layered matrix: must-have, common, bonus, low-frequency signal
+
+Charts:
+
+- horizontal bar chart for top skills/abilities
+- donut chart or stacked bar for category distribution
+- layered matrix cards for priority groups
+
+Generalization:
+
+- Java roles may categorize backend frameworks, databases, middleware, engineering tools, and frontend collaboration.
+- Operations roles may categorize content operations, growth, data analysis, platform tools, and campaign planning.
+- E-commerce roles may categorize platform operations, product operations, paid traffic, data analysis, and supply-chain coordination.
+- Categories should be derived from structured job outputs across the selected sample, not fixed in the frontend.
+
+UI direction:
+
+- preserve the useful feel of the current skill overview module
+- show hit ratio as quiet supporting text, not as the dominant visual
+
+### 4. Resume Adaptation Suggestions
+
+Purpose: translate market requirements into resume wording and project presentation guidance.
+
+Display:
+
+- market keywords grouped by skill/ability type
+- mapping from market requirement to resume expression
+- project or experience highlights that should be emphasized
+- role-specific wording suggestions that are concrete enough to use in a resume
+
+Suggested layout:
+
+- left column: market keyword groups
+- right column: resume-expression table
+
+Example table shape:
+
+- market requirement
+- resume expression direction
+- related project or evidence angle
+
+Generalization:
+
+- For engineering roles, emphasize technology, architecture, project modules, and measurable delivery.
+- For operations or e-commerce roles, emphasize platform experience, data metrics, campaign execution, user or product growth, and business outcomes.
+- The prompt should avoid generic advice and produce role-adapted, resume-ready wording.
+
+### 5. Job Structure Analysis
+
+Purpose: help the user understand what kinds of jobs were found, which related roles are worth considering, and how much unrelated or weakly matched material exists.
+
+Display:
+
+- job type or role cluster distribution
+- match status distribution: strong match, review, weak match
+- representative job list
+- adjacent role directions worth considering
+
+Charts:
+
+- donut chart for role cluster distribution
+- stacked bar or grouped bar for match status distribution
+- compact table for top 5-8 representative jobs
+
+Representative job table fields:
+
+- company
+- job title
+- match score
+- key skills or abilities
+- salary
+- education or experience requirement
+- source link
+
+UI direction:
+
+- this section explains market composition, not learning advice
+- use charts first, then a compact evidence table
+
+### 6. Salary And Threshold Analysis
+
+Purpose: show compensation and entry requirements clearly.
+
+Display:
+
+- salary range distribution
+- average salary range and median salary when enough data exists
+- education requirement distribution
+- experience requirement distribution for non-intern tasks
+- short threshold summary
+
+Charts:
+
+- salary range bar chart
+- education requirement pie or donut chart
+- experience requirement bar chart, hidden for intern tasks
+
+Rules:
+
+- Internship tasks should prefer daily salary ranges.
+- Full-time tasks should prefer monthly salary ranges.
+- If both daily and monthly salary samples exist, use tabs or segmented controls.
+- If salary samples are too sparse, show a clear insufficient-data state rather than a misleading chart.
+- Experience buckets should be normalized, for example: no requirement, fresh graduate, under 1 year, 1-3 years, 3-5 years, 5+ years, unspecified.
+
+### 7. Learning Route And Preparation Priority
+
+Purpose: provide a clear technical or capability learning path and preparation priority, not a long essay.
+
+Display:
+
+- staged learning route
+- skills or abilities to learn at each stage
+- target outcome or deliverable for each stage
+- preparation priority matrix
+- concise application advice when helpful
+
+Suggested route shape:
+
+- entry foundation
+- core skills
+- project practice
+- advanced bonus
+- application expression
+
+Charts / visuals:
+
+- horizontal or vertical timeline
+- priority matrix: must learn, fill soon, bonus, postpone
+- grouped skill tags per stage
+
+UI direction:
+
+- make the route readable at a glance
+- avoid overly detailed study plans in the first version
+- keep application advice concise and tied to the role search result
+
+### Deferred / Optional
+
+Do not make a separate evidence and data-quality section in the first redesign. Sample count and evidence quote hit ratio can appear in the top summary or core metrics. If needed later, add a lightweight collapsed 'Sample notes' area with sample limits, quote rules, and data caveats. Do not show raw JSON in the user report page by default.
+
+### Execution Plan - 2026-08-14
+
+The redesign should proceed as a thin-slice implementation to control UI drift and token cost.
+
+First implementation slice:
+
+- Read both final report data and report-input data on the final report page.
+- Build the new Top Report Summary.
+- Build the Core Metrics Bar.
+- Add lightweight skeleton sections for the remaining report modules so the user can review overall hierarchy, naming, spacing, and density before deeper work.
+- Use existing report-input fields where they are already stable; show professional empty states where data is not available.
+- Do not change backend schemas or AI prompts in this slice.
+
+After the first slice is reviewed, continue module by module:
+
+1. Skill And Ability Distribution
+2. Job Structure Analysis
+3. Salary And Threshold Analysis
+4. Resume Adaptation Suggestions
+5. Learning Route And Preparation Priority
+
+For the data-heavy modules, implement one module per pass or at most two closely related modules per pass. Keep final report text as supporting material and report-input data as the primary source for charts and metrics until the frontend report shape is stable enough to justify backend schema changes.
+

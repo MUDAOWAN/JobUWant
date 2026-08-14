@@ -47,6 +47,11 @@ class StructuringBatchRequest:
 _EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix='jobuwant-structuring')
 _LOCK = threading.Lock()
 _ACTIVE_TASKS: set[str] = set()
+_CANCEL_REQUESTS: set[str] = set()
+
+
+class StructuringCanceled(RuntimeError):
+    pass
 
 
 def submit_structuring(task_id: str) -> bool:
@@ -65,6 +70,21 @@ def _run_and_release(task_id: str) -> None:
     finally:
         with _LOCK:
             _ACTIVE_TASKS.discard(task_id)
+            _CANCEL_REQUESTS.discard(task_id)
+
+
+
+def cancel_structuring(task_id: str) -> bool:
+    with _LOCK:
+        active = task_id in _ACTIVE_TASKS
+        if active:
+            _CANCEL_REQUESTS.add(task_id)
+    return active
+
+
+def _is_cancel_requested(task_id: str) -> bool:
+    with _LOCK:
+        return task_id in _CANCEL_REQUESTS
 
 
 def _consume_background_exception(future: Future[None]) -> None:
@@ -112,6 +132,15 @@ def run_structuring_for_task(task_id: str) -> None:
         completed = 0
         failed = 0
         for batch in pending_batches:
+            if _is_cancel_requested(task_id):
+                analysis_tasks.cancel_task(
+                    conn,
+                    task_id=task_id,
+                    reason='分析已中断，未完成批次不会进入后续流程。',
+                    payload={'stage': StageName.AI_STRUCTURING.value},
+                )
+                conn.commit()
+                return
             request = StructuringBatchRequest(
                 task_id=task_id,
                 task_row_id=row_id,
@@ -133,6 +162,8 @@ def run_structuring_for_task(task_id: str) -> None:
             conn.commit()
             try:
                 summary = execute_structuring_batch(conn, request)
+                if _is_cancel_requested(task_id):
+                    raise StructuringCanceled('structuring canceled')
                 analysis_tasks.mark_batch_completed(
                     conn,
                     batch_id=request.batch_id,
@@ -150,6 +181,15 @@ def run_structuring_for_task(task_id: str) -> None:
                     payload={'batch_id': request.batch_id, **summary},
                 )
                 conn.commit()
+            except StructuringCanceled:
+                analysis_tasks.cancel_task(
+                    conn,
+                    task_id=task_id,
+                    reason='分析已中断，未完成批次不会进入后续流程。',
+                    payload={'stage': StageName.AI_STRUCTURING.value},
+                )
+                conn.commit()
+                return
             except Exception as exc:  # noqa: BLE001
                 failed += 1
                 analysis_tasks.mark_batch_failed(conn, request.batch_id, type(exc).__name__, str(exc)[:1000])
@@ -325,3 +365,6 @@ def _fail_stage(task_id: str, error_code: str, error_message: str) -> None:
         )
     finally:
         conn.close()
+
+
+

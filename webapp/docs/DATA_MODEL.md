@@ -1,4 +1,4 @@
-﻿# Web App Data Model
+# Web App Data Model
 
 Status: task-level schema and live artifact mapping through final report are current as of 2026-08-02.
 
@@ -223,3 +223,28 @@ For `artifact_type='report'`:
 - `summary_json` stores report id, report input id, search run id, output path, title, model name, and usage fields.
 
 Live final report preview reads the artifact relation first and falls back to the JSON file path when needed.
+## 2026-08-05 Supported City Catalog
+
+The Web App now has a supported city catalog in `webapp/backend/app/core/city_catalog.py`.
+
+Rules:
+
+- The `/tasks` creation form shows city names only.
+- The backend resolves the selected city to the internal `analysis_tasks.city_code` value.
+- `analysis_tasks.city_code` is still persisted because the collection runner needs it.
+- Unknown city names are rejected before task creation.
+- Mismatched city and city_code pairs are rejected.
+- The first catalog covers first-tier, new-first-tier, and common second-tier cities.
+- Hangzhou, Guangzhou, and Shenzhen are marked as locally verified because prior local runs used those city codes successfully.
+
+## 2026-08-06 Cancellation State Mapping
+
+Task cancellation now has explicit task and stage state.
+
+Rules:
+
+- `analysis_tasks.status` can be `canceled` for a user-stopped live task.
+- The active `task_stage_runs` row is marked `canceled`.
+- Downstream `pending` stage rows are marked `skipped`.
+- A `task_canceled` event records the visible reason and runner cancellation flag.
+- For collection cancellation, the runner removes the generated collection output file and does not record a `search_run` artifact.

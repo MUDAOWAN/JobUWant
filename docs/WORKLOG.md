@@ -1,4 +1,4 @@
-﻿# Worklog
+# Worklog
 
 This file records completed work, touched files, unresolved issues, and next
 steps.
@@ -1989,3 +1989,204 @@ Verification:
 Next:
 
 - Move from shared-component cleanup into a broader visual redesign pass, starting with a concrete visual direction for task workspace density, sidebar behavior, and final report reading layout.
+
+## 2026-08-05 Public Repo Setup and Tasks Page Layout Split
+
+Completed:
+
+- Completed the first public GitHub push for the project.
+- Remote repository: `git@github.com:MUDAOWAN/JobUWant.git`.
+- Main branch latest public commit recorded in this session: `59ea346 Initial public version`.
+- Confirmed public repo policy: keep the repo public, use strict ignore rules, do not include local data/artifacts, generated dependencies, private configs, or local-only helper projects.
+- Installed the local UI skill `ui-ux-pro-max` under `/home/votally/.codex/skills/ui-ux-pro-max`.
+- Started the local Web App services for browser review:
+  - Backend: `http://127.0.0.1:8000`
+  - Frontend: `http://127.0.0.1:3000/tasks`
+- Updated `/tasks` layout after user feedback:
+  - Removed the collapsible create-task button behavior.
+  - Kept task name, city, keyword, job type, and collection limit fields visible in a dedicated create-task section.
+  - Moved the search box into a separate existing-task section.
+  - Scoped search behavior to the existing task/test task list.
+  - Kept create-task behavior and task-list navigation behavior unchanged.
+
+Changed files:
+
+- `webapp/frontend/src/features/tasks/task-list-page.tsx`
+
+Verification:
+
+- Frontend `npm run typecheck` passed.
+- Frontend `npm run lint` passed.
+- Frontend `npm run build` passed.
+- `GET http://127.0.0.1:8000/api/health` returned 200.
+- `GET http://127.0.0.1:3000/tasks` returned 200.
+
+Next:
+
+- Pause further code changes for the next handoff.
+- New conversation should first read the handoff/project docs and understand the current state.
+- Continue page-by-page UI review with the user, starting from `/tasks`, before applying broader visual styling.
+## 2026-08-05 Create Task City Selector Update
+
+Completed:
+
+- Added a backend supported-city catalog for first-tier, new-first-tier, and common second-tier cities.
+- Added `GET /api/cities`.
+- Updated task creation to infer and persist `city_code` from the selected city.
+- Rejected unknown cities and mismatched city/city_code pairs.
+- Limited `expected_job_count` to 200.
+- Simplified `/tasks` create form so users enter task name, city, target role, job type, and target count only.
+- Removed visible city-code, source-type, and batch-size controls from the form.
+- Kept source type auto-generation and batch size default behavior.
+- Did not start collection and did not call model-backed stages.
+
+Changed files:
+
+- `webapp/backend/app/core/city_catalog.py`
+- `webapp/backend/app/api/cities.py`
+- `webapp/backend/app/schemas/cities.py`
+- `webapp/backend/app/main.py`
+- `webapp/backend/app/schemas/tasks.py`
+- `webapp/backend/app/repositories/analysis_tasks.py`
+- `webapp/backend/tests/test_city_catalog.py`
+- `webapp/frontend/src/lib/api.ts`
+- `webapp/frontend/src/features/tasks/task-list-page.tsx`
+- `webapp/docs/API_CONTRACTS.md`
+- `webapp/docs/DATA_MODEL.md`
+- `webapp/docs/IMPLEMENTATION_RECORD.md`
+- `webapp/docs/WORKFLOW.md`
+- `webapp/README.md`
+- `webapp/frontend/README.md`
+- `docs/WORKLOG.md`
+- `docs/SESSION_HANDOFF.md`
+
+Verification:
+
+- `cd /home/votally/projects/JobUWant/webapp/backend && PYTHONPATH=. /home/votally/projects/JobUWant/.venv/bin/pytest -q` passed: 37 passed, 23 warnings.
+- `cd /home/votally/projects/JobUWant/webapp/frontend && npm run typecheck` passed.
+- `cd /home/votally/projects/JobUWant/webapp/frontend && npm run lint` passed.
+- `cd /home/votally/projects/JobUWant/webapp/frontend && npm run build` passed.
+## 2026-08-06 Tasks Page Layout Discussion Pass
+
+Completed:
+
+- Updated `/tasks` page layout after user discussion.
+- Header now uses `JobUWant——一键查询分析岗位工具` as the primary title with a compact status pill on the right.
+- The create-task form is now the visual subject of the page, centered with stronger emphasis and a short usage description.
+- The description explains that choosing city and role creates a task that can later produce job samples, requirement breakdown, and an analysis report.
+- The lower history area is now a collapsible recent-task section instead of a full dominant task table.
+- Recent history shows at most 3 tasks.
+- Kept create-task submit behavior, task detail links, API calls, and backend workflow unchanged.
+- Did not start collection and did not call model-backed stages.
+
+Changed files:
+
+- `webapp/frontend/src/features/tasks/task-list-page.tsx`
+- `webapp/frontend/src/components/ui/shell.tsx`
+- `webapp/docs/IMPLEMENTATION_RECORD.md`
+- `docs/WORKLOG.md`
+- `docs/SESSION_HANDOFF.md`
+
+Verification:
+
+- `npm run typecheck` passed.
+- `npm run lint` passed.
+- `npm run build` passed.
+- `GET http://127.0.0.1:3000/tasks` returned 200.
+
+## 2026-08-06 Web App Task Cancellation Boundary
+
+Completed:
+
+- Added the first backend/API cancellation boundary for the planned one-click `/tasks` flow.
+- Added `POST /api/tasks/{task_id}/actions/cancel`.
+- Added stage status `canceled` and task status derivation for canceled tasks.
+- Added repository cancellation behavior: active stages become `canceled`, downstream pending stages become `skipped`, and a `task_canceled` event is recorded.
+- Added collection-runner cancellation tracking. If collection is canceled before completion, the generated collection output is removed and no `search_run` artifact is recorded.
+- Added frontend API client function `cancelTask`, but did not add a visible button yet.
+- Did not start a real collection run and did not call model-backed stages.
+
+Changed files:
+
+- `webapp/backend/app/api/tasks.py`
+- `webapp/backend/app/repositories/analysis_tasks.py`
+- `webapp/backend/app/runner/collection_runner.py`
+- `webapp/backend/app/services/task_harness.py`
+- `webapp/backend/app/services/task_service.py`
+- `webapp/backend/tests/test_analysis_tasks.py`
+- `webapp/backend/tests/test_collection_runner.py`
+- `webapp/backend/tests/test_task_harness.py`
+- `webapp/frontend/src/lib/api.ts`
+- `webapp/docs/API_CONTRACTS.md`
+- `webapp/docs/DATA_MODEL.md`
+- `webapp/docs/IMPLEMENTATION_RECORD.md`
+- `webapp/docs/WORKFLOW.md`
+- `docs/WORKLOG.md`
+- `docs/SESSION_HANDOFF.md`
+
+Verification:
+
+- Backend tests passed: 41 passed, 25 warnings.
+- Frontend TypeScript check passed through direct `tsc --noEmit` invocation.
+- Frontend ESLint passed through direct ESLint invocation.
+- Frontend production build was attempted but stopped after running for more than 9 minutes without returning a result in this Windows Node plus WSL path setup.
+
+Next:
+
+- Add the frontend running-state UI and wire the `/tasks` primary action to create a task, start collection, and expose a cancel button without starting model-backed stages.
+## 2026-08-06 Web App Start-Find Frontend Flow
+
+Completed:
+
+- Updated `/tasks` so the main form button says `开始查找`.
+- The submit flow now creates a live task, immediately starts the collection stage, and opens the task detail page.
+- Added task-detail running copy for岗位信息收集 and a `中断查找` button wired to `cancelTask`.
+- Added automatic local scoring after collection completes; after scoring succeeds, the user is routed to sample confirmation.
+- Did not run a real collection task and did not call model-backed stages.
+
+Changed files:
+
+- `webapp/frontend/src/features/tasks/task-list-page.tsx`
+- `webapp/frontend/src/features/tasks/task-workspace.tsx`
+- `webapp/docs/IMPLEMENTATION_RECORD.md`
+- `webapp/docs/WORKFLOW.md`
+- `docs/WORKLOG.md`
+- `docs/SESSION_HANDOFF.md`
+
+Verification:
+
+- Frontend TypeScript check passed.
+- Frontend ESLint passed.
+- Backend tests passed: 41 passed, 25 warnings.
+
+Next:
+
+- Change sample confirmation from “save only” to `确定并开始分析`: save the selected jobs, create structuring batches, then route into the analysis-running view. Keep actual model-backed execution behind explicit user confirmation/cost copy.
+
+## 2026-08-13 Windows PowerShell UTF-8 File Write Issue
+
+Context:
+
+- While updating only the `/tasks` start-find button CSS in `webapp/frontend/src/features/tasks/task-list-page.tsx`, a Windows PowerShell edit was used against the WSL UNC path after `apply_patch` could not access the file.
+- The command used `Get-Content -Raw` without explicitly forcing UTF-8 decoding, then wrote the text back as UTF-8. In Windows PowerShell 5.1 this can decode UTF-8 Chinese text through the local Windows code page first, producing mojibake text.
+- A few characters became the Unicode replacement character `U+FFFD`, which also broke several TSX string literals and one JSX paragraph closing tag.
+
+Fix applied:
+
+- Repaired the file as UTF-8.
+- Manually fixed the remaining replacement-character locations in visible Chinese strings.
+- Restored the missing `</p>` tag.
+- Verified with:
+  - `grep -n "U+FFFD"` style inspection / no replacement-character matches in `task-list-page.tsx`.
+  - `PATH=/home/votally/projects/JobUWant/webapp/.tools/node/bin:$PATH ./node_modules/.bin/tsc --noEmit` passing.
+  - `PATH=/home/votally/projects/JobUWant/webapp/.tools/node/bin:$PATH ./node_modules/.bin/eslint .` passing.
+  - `npm run build` passing with the project-local Linux Node path.
+
+Future rule:
+
+- Do not use Windows PowerShell `Get-Content` plus `Set-Content` for UTF-8 source files on WSL UNC paths unless both read and write encoding are controlled explicitly.
+- Prefer edits from WSL, or use a temporary ASCII Python script that writes target files with `encoding='utf-8'`.
+- If Windows PowerShell must write a UTF-8 file, use .NET explicit UTF-8 APIs:
+  - `[System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)`
+  - `[System.IO.File]::WriteAllText($path, $text, [System.Text.UTF8Encoding]::new($false))`
+- After any Windows-side write to frontend TSX files, immediately inspect for replacement characters, then run TypeScript and ESLint before building.

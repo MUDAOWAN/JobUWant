@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import hashlib
@@ -76,7 +76,7 @@ class RequirementSummary(BaseModel):
 class GraduateFriendliness(BaseModel):
     level: Friendliness = "unclear"
     reason: str = ""
-    evidence: list[EvidenceItem] = Field(default_factory=list, min_length=1)
+    evidence: list[EvidenceItem] = Field(default_factory=list)
 
 
 class ExtractedJob(BaseModel):
@@ -91,7 +91,7 @@ class ExtractedJob(BaseModel):
     experience_requirements: RequirementSummary
     education_requirements: RequirementSummary
     graduate_friendliness: GraduateFriendliness
-    evidence: list[EvidenceItem] = Field(default_factory=list, min_length=1)
+    evidence: list[EvidenceItem] = Field(default_factory=list)
 
     @field_validator("normalized_role", "role_family")
     @classmethod

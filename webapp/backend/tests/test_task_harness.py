@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import pytest
 
@@ -65,6 +65,13 @@ def test_derive_task_status() -> None:
         statuses[stage_name] = StageStatus.COMPLETED.value
     assert derive_task_status(statuses) == TaskStatus.COMPLETED
 
+
+def test_derive_task_status_prefers_canceled() -> None:
+    statuses = initial_stage_statuses()
+    statuses[StageName.COLLECT_JOBS.value] = StageStatus.CANCELED.value
+    statuses[StageName.SCORE_JOBS.value] = StageStatus.FAILED.value
+
+    assert derive_task_status(statuses) == TaskStatus.CANCELED
 
 def test_harness_manifest_is_documentable() -> None:
     manifest = harness_manifest()

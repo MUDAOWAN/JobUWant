@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import json
@@ -249,7 +249,7 @@ def evaluate_row(
         review_reasons.append("资深要求需要确认用户阶段")
     score = max(0.0, min(100.0, score))
 
-    if score >= 75.0 and not review_reasons:
+    if score >= 75.0:
         status = "strong_match"
     elif score >= 55.0:
         status = "review"
